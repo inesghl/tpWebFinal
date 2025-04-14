@@ -1,0 +1,242 @@
+<!-- Main Admin Layout -->
+<div class="admin-layout">
+  <!-- Sidebar -->
+  <c-sidebar class="sidebar" visible>
+    <c-sidebar-brand class="sidebar-header">
+      <h2>Admin</h2>
+    </c-sidebar-brand>
+    <c-sidebar-nav>
+      <c-sidebar-nav-item routerLink="/dashboard/admin" routerLinkActive="active" class="menu-item">
+        <i class="bi bi-speedometer2"></i>
+        <span>Dashboard</span>
+      </c-sidebar-nav-item>
+
+      <c-sidebar-nav-item routerLink="/dashboard/admin/users" routerLinkActive="active" class="menu-item">
+        <i class="bi bi-people"></i>
+        <span>Utilisateur</span>
+      </c-sidebar-nav-item>
+
+      <c-sidebar-nav-item routerLink="/dashboard/admin/searcher" routerLinkActive="active" class="menu-item">
+        <i class="bi bi-person-badge"></i>
+        <span>Chercheurs</span>
+      </c-sidebar-nav-item>
+
+      <c-sidebar-nav-item routerLink="/dashboard/admin/articles" routerLinkActive="active" class="menu-item">
+        <i class="bi bi-journal-text"></i>
+        <span>Articles</span>
+      </c-sidebar-nav-item>
+
+      <c-sidebar-nav-item routerLink="/dashboard/event" routerLinkActive="active" class="menu-item">
+        <i class="bi bi-diagram-3"></i>
+        <span>Événements</span>
+      </c-sidebar-nav-item>
+
+      <c-sidebar-nav-divider class="menu-divider"></c-sidebar-nav-divider>
+
+      <c-sidebar-nav-item routerLink="/dashboard/admin/settings" routerLinkActive="active" class="menu-item">
+        <i class="bi bi-gear"></i>
+        <span>Paramètres</span>
+      </c-sidebar-nav-item>
+    </c-sidebar-nav>
+  </c-sidebar>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    <!-- Top Navbar -->
+    <c-header class="navbar navbar-light bg-light px-3">
+      <c-header-toggler class="btn btn-outline-primary toggle-sidebar-btn" (click)="toggleSidebar()">
+        <i class="bi bi-list"></i>
+      </c-header-toggler>
+      <div class="d-flex align-items-center">
+        <div class="position-relative me-3">
+          <i class="bi bi-bell"></i>
+          <c-badge color="danger" position="top-right" size="sm">5</c-badge>
+        </div>
+        <c-dropdown>
+          <button cButton color="light" cDropdownToggle>
+            <c-avatar src="/assets/profile-placeholder.jpg" size="md" class="me-2"></c-avatar>
+            Admin 
+          </button>
+          <ul cDropdownMenu class="dropdown-menu-end">
+            <li><a cDropdownItem href="#">Profile</a></li>
+            <li><a cDropdownItem href="#">Logout</a></li>
+          </ul>
+        </c-dropdown>
+      </div>
+    </c-header>
+
+    <!-- Page Content -->
+    <div class="page-content">
+      <!-- Dashboard Overview -->
+      <div class="dashboard-container">
+        <!-- Page Title -->
+        <div class="page-title mb-4">
+          <h1>Dashboard</h1>
+          <c-breadcrumb>
+            <c-breadcrumb-item>Home</c-breadcrumb-item>
+            <c-breadcrumb-item active>Dashboard</c-breadcrumb-item>
+          </c-breadcrumb>
+        </div>
+
+        <!-- Stats Cards Row -->
+        <div class="row mb-4">
+          <!-- Users -->
+          <div class="col-md-3 col-sm-6">
+            <c-card class="stat-card primary mb-3" textColor="white">
+              <c-card-body class="d-flex align-items-center">
+                <div class="stat-icon me-3">
+                  <i class="bi bi-people-fill"></i>
+                </div>
+                <div class="stat-details">
+                  <h2>{{ stats.totalUsers }}</h2>
+                  <p class="mb-0">Utilisateurs</p>
+                </div>
+              </c-card-body>
+              <c-card-footer class="d-flex justify-content-between bg-transparent border-top-0">
+               
+              </c-card-footer>
+            </c-card>
+          </div>
+
+          <!-- Researchers -->
+          <div class="col-md-3 col-sm-6">
+            <c-card class="stat-card info mb-3" textColor="white">
+              <c-card-body class="d-flex align-items-center">
+                <div class="stat-icon me-3">
+                  <i class="bi bi-person-badge"></i>
+                </div>
+                <div class="stat-details">
+                  <h2>{{ stats.totalResearchers }}</h2>
+                  <p class="mb-0">Chercheurs</p>
+                </div>
+              </c-card-body>
+              <c-card-footer class="d-flex justify-content-between bg-transparent border-top-0">
+                
+              </c-card-footer>
+            </c-card>
+          </div>
+
+          <!-- Articles -->
+          <div class="col-md-3 col-sm-6">
+            <c-card class="stat-card success mb-3" textColor="white">
+              <c-card-body class="d-flex align-items-center">
+                <div class="stat-icon me-3">
+                  <i class="bi bi-journal-text"></i>
+                </div>
+                <div class="stat-details">
+                  <h2>{{ stats.totalArticles }}</h2>
+                  <p class="mb-0">Articles</p>
+                </div>
+              </c-card-body>
+              <c-card-footer class="d-flex justify-content-between bg-transparent border-top-0">
+                
+              </c-card-footer>
+            </c-card>
+          </div>
+
+          <!-- Domains -->
+          <div class="col-md-3 col-sm-6">
+            <c-card class="stat-card warning mb-3" textColor="white">
+              <c-card-body class="d-flex align-items-center">
+                <div class="stat-icon me-3">
+                  <i class="bi bi-diagram-3"></i>
+                </div>
+                <div class="stat-details">
+                  <h2>{{ stats.totalDomains }}</h2>
+                  <p class="mb-0">Domaines</p>
+                </div>
+              </c-card-body>
+              <c-card-footer class="d-flex justify-content-between bg-transparent border-top-0">
+                <span></span>
+                <span class="fw-bold"></span>
+              </c-card-footer>
+            </c-card>
+          </div>
+        </div>
+
+        <!-- Dashboard Widgets Row -->
+        <div class="row">
+          <!-- Line Chart - Download Trends -->
+          <div class="col-lg-8 col-md-12 mb-4">
+            <c-card>
+              <c-card-header>
+                <h5 class="m-0">Téléchargements par Domaine</h5>
+              </c-card-header>
+              <c-card-body>
+                <div class="chart-container" style="height: 300px;">
+                  <canvas id="visitorChart"></canvas>
+                </div>
+              </c-card-body>
+            </c-card>
+          </div>
+
+          <!-- Articles by Domain Chart -->
+          <div class="col-lg-4 col-md-6 mb-4">
+            <c-card>
+              <c-card-header class="d-flex justify-content-between align-items-center">
+                <h5 class="m-0">Articles par Domaine</h5>
+                <span class="h5 m-0">{{ stats.totalArticles }}</span>
+              </c-card-header>
+              <c-card-body>
+                <div class="chart-container text-center" style="height: 220px; position: relative;">
+                  <canvas id="customerChart"></canvas>
+                  
+                </div>
+                
+                <!-- Domain statistics (dynamically generated) -->
+                <ng-container *ngIf="articlesByDomain.length > 0">
+                  <div class="domain-stats mt-3">
+                    <div class="row mb-2" *ngFor="let chunk of articlesByDomain | slice:0:(articlesByDomain.length > 6 ? 6 : articlesByDomain.length); let i = index; let even = even">
+                      <div class="col-6 text-center" *ngIf="i % 2 === 0">
+                        <div class="h5 mb-0">{{ articlesByDomain[i].count }}</div>
+                        <div class="text-muted small">{{ articlesByDomain[i].domain }}</div>
+                      </div>
+                      <div class="col-6 text-center" *ngIf="i+1 < articlesByDomain.length">
+                        <div class="h5 mb-0">{{ articlesByDomain[i+1].count }}</div>
+                        <div class="text-muted small">{{ articlesByDomain[i+1].domain }}</div>
+                      </div>
+                    </div>
+                  </div>
+                </ng-container>
+                
+                <!-- Fallback static content if no data -->
+                <ng-container *ngIf="articlesByDomain.length === 0">
+                  <div class="d-flex justify-content-around mt-3">
+                    <div class="text-center">
+                      <div class="h5 mb-0">674</div>
+                      <div class="text-muted small">AI</div>
+                    </div>
+                    <div class="text-center">
+                      <div class="h5 mb-0">182</div>
+                      <div class="text-muted small">ML</div>
+                    </div>
+                  </div>
+                  <div class="d-flex justify-content-around mt-3">
+                    <div class="text-center">
+                      <div class="h5 mb-0">245</div>
+                      <div class="text-muted small">SECURITY</div>
+                    </div>
+                    <div class="text-center">
+                      <div class="h5 mb-0">163</div>
+                      <div class="text-muted small">WEB</div>
+                    </div>
+                  </div>
+                  <div class="d-flex justify-content-around mt-3">
+                    <div class="text-center">
+                      <div class="h5 mb-0">198</div>
+                      <div class="text-muted small">MOBILE</div>
+                    </div>
+                    <div class="text-center">
+                      <div class="h5 mb-0">156</div>
+                      <div class="text-muted small">CLOUD</div>
+                    </div>
+                  </div>
+                </ng-container>
+              </c-card-body>
+            </c-card>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

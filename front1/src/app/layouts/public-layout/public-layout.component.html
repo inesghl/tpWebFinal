@@ -1,0 +1,52 @@
+<header class="c-header">
+    <div class="container-fluid">
+      <div class="d-flex justify-content-between align-items-center py-2">
+        <a routerLink="/" class="c-header-brand">
+          <span class="text-primary h4 mb-0">ResearchGate</span>
+        </a>
+        <div>
+          <ng-container *ngIf="!isLoggedIn; else loggedInTemplate">
+            <button class="btn btn-sm btn-outline-primary me-2" routerLink="/auth/login">Log in</button>
+            <button class="btn btn-sm btn-primary" routerLink="/auth/register">Join for free</button>
+          </ng-container>
+          <ng-template #loggedInTemplate>
+            <div class="dropdown">
+              <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="userDropdown" data-coreui-toggle="dropdown" aria-expanded="false">
+                <i class="cil-user me-1"></i> My Account
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                <li><a class="dropdown-item" routerLink="/user/profile">Profile</a></li>
+                <li><a class="dropdown-item" routerLink="/user/publications">My Publications</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="#">Logout</a></li>
+              </ul>
+            </div>
+          </ng-template>
+        </div>
+      </div>
+    </div>
+  </header>
+  
+  <main class="c-main">
+    <router-outlet></router-outlet>
+  </main>
+  
+  <footer class="c-footer bg-light mt-4">
+    <div class="container-fluid py-3">
+      <div class="row">
+        <div class="col-md-8 offset-md-2">
+          <div class="d-flex flex-column flex-md-row justify-content-between">
+            <div>
+              <p class="mb-0">&copy; 2025 Research Platform</p>
+            </div>
+            <div>
+              <a href="#" class="me-3 text-decoration-none">About</a>
+              <a href="#" class="me-3 text-decoration-none">Terms</a>
+              <a href="#" class="me-3 text-decoration-none">Privacy</a>
+              <a href="#" class="text-decoration-none">Contact</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </footer>

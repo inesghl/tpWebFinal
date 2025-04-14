@@ -1,0 +1,191 @@
+<link href="https://cdn.jsdelivr.net/npm/@coreui/coreui@4.5.0/dist/css/coreui.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+<!-- Main Admin Layout -->
+<div class="admin-layout">
+  <!-- Sidebar -->
+  <c-sidebar class="sidebar" visible>
+    <c-sidebar-brand class="sidebar-header">
+      <h2>Admin</h2>
+    </c-sidebar-brand>
+    <c-sidebar-nav>
+      <c-sidebar-nav-item routerLink="/dashboard/admin" routerLinkActive="active" class="menu-item">
+        <i class="bi bi-speedometer2"></i>
+        <span>Dashboard</span>
+      </c-sidebar-nav-item>
+
+      <c-sidebar-nav-item routerLink="/dashboard/admin/users" routerLinkActive="active" class="menu-item">
+        <i class="bi bi-people"></i>
+        <span>Utilisateur</span>
+      </c-sidebar-nav-item>
+
+      <c-sidebar-nav-item routerLink="/dashboard/admin/searcher" routerLinkActive="active" class="menu-item">
+        <i class="bi bi-person-badge"></i>
+        <span>Chercheurs</span>
+      </c-sidebar-nav-item>
+
+      <c-sidebar-nav-item routerLink="/dashboard/admin/articles" routerLinkActive="active" class="menu-item">
+        <i class="bi bi-journal-text"></i>
+        <span>Articles</span>
+      </c-sidebar-nav-item>
+
+      <c-sidebar-nav-item routerLink="/dashboard/event" routerLinkActive="active" class="menu-item">
+        <i class="bi bi-diagram-3"></i>
+        <span>Événements</span>
+      </c-sidebar-nav-item>
+
+      <c-sidebar-nav-divider class="menu-divider"></c-sidebar-nav-divider>
+
+      <c-sidebar-nav-item routerLink="/dashboard/admin/settings" routerLinkActive="active" class="menu-item">
+        <i class="bi bi-gear"></i>
+        <span>Paramètres</span>
+      </c-sidebar-nav-item>
+    </c-sidebar-nav>
+  </c-sidebar>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    <router-outlet></router-outlet> 
+    <!-- Top Navbar - IMPROVED -->
+    <c-header class="top-navbar">
+      <div class="header-left">
+        <c-header-toggler class="toggle-sidebar-btn" type="button">
+          <i class="bi bi-list"></i>
+        </c-header-toggler>
+        <div class="page-title d-none d-md-block">
+          <h4 class="mb-0"></h4>
+        </div>
+      </div>
+      
+      <div class="header-right">
+        <div class="header-actions">
+          <!-- Search Box -->
+          <div class="search-box d-none d-md-flex">
+            <input class="form-control form-control-sm" type="search" placeholder="Search...">
+            <button class="search-btn" type="button">
+              <i class="bi bi-search"></i>
+            </button>
+          </div>
+          
+          <!-- Notifications -->
+          <div class="notification-wrapper">
+            <button class="notification-btn" type="button">
+              <i class="bi bi-bell"></i>
+              <c-badge color="danger" position="top-end" shape="rounded-pill">5</c-badge>
+            </button>
+          </div>
+          
+          <!-- User Profile -->
+          <c-dropdown alignment="end">
+            <button cButton color="light" cDropdownToggle class="user-dropdown-btn">
+              <c-avatar size="md" class="user-avatar"></c-avatar>
+              <span class="d-none d-md-inline ms-2">Admin</span>
+              <i class="bi bi-chevron-down ms-1"></i>
+            </button>
+           
+          </c-dropdown>
+        </div>
+      </div>
+    </c-header>
+
+    <!-- Page Content -->
+    <div class="page-content">
+      <!-- Dashboard Overview -->
+      <div class="dashboard-container">
+        <!-- Page Title -->
+        <div class="page-title mb-4">
+          <h1>Utilisateurs </h1>
+          <c-breadcrumb>
+            <c-breadcrumb-item>Dashboard/</c-breadcrumb-item>
+            <c-breadcrumb-item active>Utilisateurs</c-breadcrumb-item>
+          </c-breadcrumb>
+        </div>
+
+        <!-- Users Table Card -->
+        <div class="row">
+          <div class="col-xl-12">
+            <app-card cardTitle="Users" [options]="false" blockClass="table-border-style">
+              <div *ngIf="loading" class="text-center py-5">
+                <c-spinner></c-spinner>
+              </div>
+
+              <div *ngIf="error" class="alert alert-danger">
+                {{ error }}
+              </div>
+
+              <div class="table-responsive" *ngIf="!loading && !error">
+                <table class="table table-hover table-striped">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Name</th>
+                      <th>Email</th>
+                      <th>Role</th>
+                     
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let user of users">
+                      <td>{{ user.id }}</td>
+                      <td>
+                        <span *ngIf="!isEditing(user.id)">{{ user.firstName }} {{ user.lastName }}</span>
+                        <div *ngIf="isEditing(user.id)" class="d-flex gap-2">
+                          <input cFormControl type="text" [(ngModel)]="editForm.firstName" placeholder="First name" class="form-control form-control-sm">
+                          <input cFormControl type="text" [(ngModel)]="editForm.lastName" placeholder="Last name" class="form-control form-control-sm">
+                        </div>
+                      </td>
+                      <td>
+                        <span *ngIf="!isEditing(user.id)">{{ user.email }}</span>
+                        <input *ngIf="isEditing(user.id)" cFormControl type="email" [(ngModel)]="editForm.email" class="form-control form-control-sm">
+                      </td>
+                      <td>
+                        <c-badge *ngIf="!isEditing(user.id)" [color]="user.role === 'ADMIN' ? 'danger' : 'info'">
+                          {{ user.role }}
+                        </c-badge>
+                        <select *ngIf="isEditing(user.id)" [(ngModel)]="editForm.role" class="form-select form-select-sm">
+                          <option value="USER">User</option>
+                          <option value="MODERATOR">Moderator</option>
+                        </select>
+                      </td>
+                      
+                      <td>
+                        <div class="action-buttons">
+                          <!-- View Button -->
+                          <!-- <button cButton color="info" size="sm" title="View user details" (click)="viewUser(user)">
+                            <i class="bi bi-eye"></i>
+                          </button> -->
+                          
+                          <!-- Edit/Save Buttons -->
+                          <button *ngIf="!isEditing(user.id)" cButton color="primary" size="sm" title="Edit user" (click)="editUser(user)">
+                            <i class="bi bi-pencil"></i>
+                          </button>
+                          <button *ngIf="isEditing(user.id)" cButton color="success" size="sm" title="Save changes" (click)="saveUser()">
+                            <i class="bi bi-check-lg"></i>
+                          </button>
+                          
+                          <!-- Cancel Button (only when editing) -->
+                          <button *ngIf="isEditing(user.id)" cButton color="secondary" size="sm" title="Cancel editing" (click)="cancelEdit()">
+                            <i class="bi bi-x-lg"></i>
+                          </button>
+                          
+                          <!-- Delete Button -->
+                          <button cButton color="danger" size="sm" title="Delete user" (click)="deleteUser(user.id)">
+                            <i class="bi bi-trash"></i>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div *ngIf="!loading && !error && users.length === 0" class="text-center py-5">
+                No users found.
+              </div>
+            </app-card>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,60 @@
+<div class="c-app">
+    <!-- Sidebar -->
+    <div class="c-sidebar c-sidebar-dark c-sidebar-fixed c-sidebar-lg-show" id="sidebar">
+      <div class="c-sidebar-brand">
+        <span class="h5 mb-0">Admin Dashboard</span>
+      </div>
+      <ul class="c-sidebar-nav ps-0">
+        <li class="c-sidebar-nav-item" *ngFor="let item of sidebarItems">
+          <a class="c-sidebar-nav-link" [routerLink]="item.route" routerLinkActive="c-active">
+            <i [ngClass]="item.icon" class="c-sidebar-nav-icon"></i>
+            {{ item.title }}
+          </a>
+        </li>
+        <li class="c-sidebar-nav-divider"></li>
+        <li class="c-sidebar-nav-item">
+          <a class="c-sidebar-nav-link" routerLink="/">
+            <i class="c-sidebar-nav-icon cil-account-logout"></i>
+            Back to Site
+          </a>
+        </li>
+      </ul>
+    </div>
+  
+    <!-- Main content -->
+    <div class="c-wrapper">
+      <!-- Header -->
+      <header class="c-header c-header-light c-header-fixed">
+        <button class="c-header-toggler c-class-toggler d-lg-none" type="button" data-toggle="sidebar-show">
+          <i class="cil-menu"></i>
+        </button>
+        <button class="c-header-toggler c-class-toggler ml-3 d-md-down-none" type="button" data-toggle="sidebar-lg-show">
+          <i class="cil-menu"></i>
+        </button>
+        <ul class="c-header-nav ml-auto">
+          <li class="c-header-nav-item dropdown">
+            <a class="c-header-nav-link" data-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false">
+              <i class="cil-user"></i> Admin
+            </a>
+            <div class="dropdown-menu dropdown-menu-right">
+              <a class="dropdown-item" href="#">
+                <i class="cil-settings"></i> Settings
+              </a>
+              <a class="dropdown-item" href="#">
+                <i class="cil-account-logout"></i> Logout
+              </a>
+            </div>
+          </li>
+        </ul>
+      </header>
+  
+      <!-- Page content -->
+      <div class="c-body">
+        <main class="c-main">
+          <div class="container-fluid">
+            <router-outlet></router-outlet>
+          </div>
+        </main>
+      </div>
+    </div>
+  </div>

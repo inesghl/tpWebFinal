@@ -1,0 +1,11 @@
+/* src/styles.scss */
+/* Remove any previous CoreUI imports */
+
+/* Use traditional imports for now */
+ @import "bootstrap/dist/css/bootstrap.min.css";
+ 
+// /* Or if you want CoreUI */
+@import "@coreui/coreui/dist/css/coreui.min.css";
+@import "@coreui/icons/css/free.min.css";
+
+/* Your other custom styles below */
