@@ -118,10 +118,12 @@ public class Article {
     private String description;
     
     
+
     @ManyToOne
-    @JoinColumn(name = "researcher_id", nullable = false)
+    @JoinColumn(name = "user_id", nullable = false)
     @JsonBackReference
-    private Researcher researcher;
+    private User user;
+
     
     // 
     @OneToMany(mappedBy = "article", cascade = CascadeType.ALL)

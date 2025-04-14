@@ -14,9 +14,10 @@ public class UserCreateRequest {
     private String lastName; 
     private String email;
     private String password; 
-    // private Date employmentDate;
-    // private String originalEstablishment;
-    // private String lastDiploma; 
-    // private String grade; 
-    // private Role role; 
+    private String institution;
+    private String position;
+    private String department;
+    private Date employmentDate;
+    private String grade;
+   // private Role role; 
 }

@@ -73,7 +73,6 @@ import java.util.Date;
 import java.util.List;
 
 @Entity
-// @Inheritance(strategy = InheritanceType.JOINED)
 @Getter
 @Setter
 
@@ -86,6 +85,11 @@ public class User {
     private String lastName;
     private String email;
     private String password;
+    private String institution;
+    private String position;
+    private String department;
+    private Date employmentDate;
+    private String grade;
 
     @Enumerated(EnumType.STRING)
     private Role role;
