@@ -1,237 +1,97 @@
 package com.example.backend.Controllers;
 
-import com.example.backend.Dto.CreateArticleDTO;
-import com.example.backend.Dto.UpdateArticleDTO;
+import com.example.backend.Dto.ArticleDTO;
 import com.example.backend.Entities.Article;
-import com.example.backend.Entities.Comment;
-import com.example.backend.Entities.Contribution;
 import com.example.backend.Services.ArticleService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.http.HttpHeaders;
 
-import org.springframework.core.io.Resource;
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/articles")
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "http://localhost:4200")
 public class ArticleController {
 
     @Autowired
     private ArticleService articleService;
 
-    /**
-     * Create a new article
-     */
-    @PostMapping
-    public ResponseEntity<Article> createArticle(
-        @RequestBody Article article,
-        @RequestParam Long userId) {
-    
-        Article createdArticle = articleService.createArticle(article, userId);
-        return ResponseEntity.status(HttpStatus.CREATED).body(createdArticle);
-    }
-
-    /**
-     * Get all articles
-     */
-    @GetMapping
-    public ResponseEntity<List<Article>> getAllArticles() {
-        List<Article> articles = articleService.getAllArticles();
-        return new ResponseEntity<>(articles, HttpStatus.OK);
+   
+    @GetMapping()
+    public ResponseEntity<List<ArticleDTO>> getAllArticles() {
+        List<ArticleDTO> articles = articleService.getAllArticles();
+        return ResponseEntity.ok(articles);
     }
     
-    /**
-     * Get articles by status (admin/moderator only)
-     */
-   // @PreAuthorize("hasAnyAuthority('ADMIN', 'MODERATEUR')")
-    @GetMapping("/status/{status}")
-    public ResponseEntity<List<Article>> getArticlesByStatus(@PathVariable String status) {
-        List<Article> articles = articleService.getArticlesByStatus(status);
-        return new ResponseEntity<>(articles, HttpStatus.OK);
-    }
-
-    /**
-     * Get article by ID
-     */
     @GetMapping("/{id}")
-    public ResponseEntity<Article> getArticleById(@PathVariable Long id) {
-        Article article = articleService.getArticleById(id);
-        return new ResponseEntity<>(article, HttpStatus.OK);
+    public ArticleDTO getArticleById(@PathVariable Long id) {
+        return articleService.getArticleById(id);
     }
 
-    /**
-     * Update an article
-     */
+    @PostMapping
+    public ArticleDTO createArticle(@RequestBody ArticleDTO articleDTO, @RequestParam Long userId) {
+        return articleService.createArticle(articleDTO, userId);
+    }
+
     @PutMapping("/{id}")
-    public ResponseEntity<Article> updateArticle(
+    public ArticleDTO updateArticle(
             @PathVariable Long id,
-            @RequestBody Article article,
+            @RequestBody ArticleDTO articleDTO,
             @RequestParam Long userId) {
-        Article updatedArticle = articleService.updateArticle(id, article, userId);
-        return new ResponseEntity<>(updatedArticle, HttpStatus.OK);
-    }
-    
-    /**
-     * Validate an article (Admin only)
-     */
-  //  @PreAuthorize("hasAuthority('ADMIN')")
-    @PutMapping("/{id}/validate")
-    public ResponseEntity<?> validateArticle(
-            @PathVariable Long id,
-            @RequestBody Map<String, String> request,
-            @RequestParam Long adminId) {
-        try {
-            String status = request.get("status");
-            if (status == null || (!status.equals("APPROVED") && !status.equals("REJECTED"))) {
-                return ResponseEntity.badRequest().body("Invalid status. Must be APPROVED or REJECTED");
-            }
-            Article validatedArticle = articleService.validateArticle(id, status, adminId);
-            return ResponseEntity.ok(validatedArticle);
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
-        }
+        return articleService.updateArticle(id, articleDTO, userId);
     }
 
-    /**
-     * Delete an article
-     */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteArticle(
-            @PathVariable Long id,
-            @RequestParam Long userId) {
+    public ResponseEntity<Void> deleteArticle(@PathVariable Long id, @RequestParam Long userId) {
         articleService.deleteArticle(id, userId);
-        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        return ResponseEntity.noContent().build();
     }
 
-    /**
-     * Search articles by keyword
-     */
-    @GetMapping("/search")
-    public ResponseEntity<List<Article>> searchArticles(@RequestParam String keyword) {
-        List<Article> articles = articleService.searchByKeyword(keyword);
-        return new ResponseEntity<>(articles, HttpStatus.OK);
+    @PutMapping("/{id}/validate")
+    public Article validateArticle(
+            @PathVariable Long id,
+            @RequestBody ArticleDTO articleDTO,
+            @RequestParam Long adminId) {
+        return articleService.validateArticle(id, articleDTO.getStatus(), adminId);
     }
-
-    /**
-     * Get articles by domain
-     */
-    @GetMapping("/domain/{domainId}")
-    public ResponseEntity<List<Article>> getArticlesByDomain(@PathVariable Long domainId) {
-        List<Article> articles = articleService.getArticlesByDomain(domainId);
-        return new ResponseEntity<>(articles, HttpStatus.OK);
-    }
-
-    /**
-     * Assign article to user
-     */
-    @PostMapping("/{articleId}/assign-user/{userId}")
-    public ResponseEntity<Article> assignArticleToUser(
-            @PathVariable Long articleId,
-            @PathVariable Long userId) {
-        Article assignedArticle = articleService.assignAuthorToArticle(articleId, userId);
-        return new ResponseEntity<>(assignedArticle, HttpStatus.OK);
-    }
-
-    /**
-     * Assign article to domain
-     */
     @PostMapping("/{articleId}/assign-domain/{domainId}")
-    public ResponseEntity<Article> assignArticleToDomain(
+    public ArticleDTO assignDomainToArticle(
             @PathVariable Long articleId,
             @PathVariable Long domainId,
             @RequestParam Long userId) {
-        Article assignedArticle = articleService.assignDomainToArticle(articleId, domainId, userId);
-        return new ResponseEntity<>(assignedArticle, HttpStatus.OK);
+        Article article = articleService.assignDomainToArticle(articleId, domainId, userId);
+        return ArticleDTO.fromEntity(article);
     }
-    
-    /**
-     * Add a contributor to an article
-     */
-   // @PreAuthorize("hasAnyAuthority('ADMIN', 'MODERATEUR')")
-    @PostMapping("/{articleId}/contributions")
-    public ResponseEntity<Contribution> addContribution(
-            @PathVariable Long articleId,
-            @RequestBody Map<String, Object> request,
-            @RequestParam Long userId) {
-        try {
-            Long contributorId = Long.parseLong(request.get("contributorId").toString());
-            String type = request.get("type").toString();
-            
-            Contribution contribution = articleService.addContribution(articleId, userId, contributorId, type);
-            return new ResponseEntity<>(contribution, HttpStatus.CREATED);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
-        }
-    }
-
-    /**
-     * Add a comment to an article
-     */
-    @PostMapping("/{articleId}/comments")
-    public ResponseEntity<Comment> addComment(
-            @PathVariable Long articleId,
-            @RequestBody Comment comment,
-            @RequestParam Long userId) {
-        Comment createdComment = articleService.addComment(articleId, comment, userId);
-        return new ResponseEntity<>(createdComment, HttpStatus.CREATED);
-    }
-
-    /**
-     * Get comments for an article
-     */
-    @GetMapping("/{articleId}/comments")
-    public ResponseEntity<List<Comment>> getCommentsForArticle(@PathVariable Long articleId) {
-        List<Comment> comments = articleService.getCommentsForArticle(articleId);
-        return new ResponseEntity<>(comments, HttpStatus.OK);
-    }
-
-    /**
-     * Moderate a comment (approve/reject) - Admin/Moderator only
-     */
-    @PutMapping("/comments/{commentId}/moderate")
-    public ResponseEntity<?> moderateComment(
-            @PathVariable Long commentId,
-            @RequestBody Map<String, String> request,
-            @RequestParam Long userId) {
-        try {
-            String status = request.get("status");
-            if (status == null || (!status.equals("APPROVED") && !status.equals("REJECTED"))) {
-                return ResponseEntity.badRequest().body("Invalid status. Must be APPROVED or REJECTED");
-            }
-            Comment moderatedComment = articleService.moderateComment(commentId, status, userId);
-            return ResponseEntity.ok(moderatedComment);
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
-        }
-
-
-  
-    }
-
-
 
     @PostMapping("/{articleId}/upload")
-    public ResponseEntity<Article> uploadArticleFile(
+    public ArticleDTO uploadFile(
             @PathVariable Long articleId,
             @RequestParam("file") MultipartFile file) {
-        Article article = articleService.uploadFile(articleId, file);
-        return new ResponseEntity<>(article, HttpStatus.OK);
+        return articleService.uploadFile(articleId, file);
     }
+
     @GetMapping("/{articleId}/download")
-    public ResponseEntity<Resource> downloadArticleFile(@PathVariable Long articleId) {
+    public ResponseEntity<Resource> downloadFile(@PathVariable Long articleId) {
         Resource resource = articleService.downloadFile(articleId);
-    
+        
+        String filename = "document.pdf"; // Default filename
+        Article article = articleService.getArticleEntityById(articleId);
+
+        if (article.getFilePath() != null && !article.getFilePath().isEmpty()) {
+            filename = article.getFilePath().substring(article.getFilePath().lastIndexOf('/') + 1);
+        }
+        
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + resource.getFilename() + "\"")
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
                 .body(resource);
     }
+}
         
 
 
@@ -258,7 +118,7 @@ public class ArticleController {
 //                     "attachment; filename=\"" + article.getFileName() + "\"")
 //             .body(fileResource);
 // }
-}
+
 
 
 

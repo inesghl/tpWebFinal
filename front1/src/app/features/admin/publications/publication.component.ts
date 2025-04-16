@@ -1,5 +1,4 @@
 import { Component, OnInit } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CardModule, TableModule, BadgeModule, ButtonModule, SpinnerModule, FormModule, ModalModule } from '@coreui/angular';
@@ -7,8 +6,9 @@ import { IconModule } from '@coreui/icons-angular';
 import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { IconSetService } from '@coreui/icons-angular';
 import { cilTrash, cilPencil, cilCheck, cilX, cilPlus, cilNotes, cilCloudDownload, cilPeople } from '@coreui/icons';
-
 import { RouterModule } from '@angular/router';
+
+import { PublicationService, Article, Domain, Contribution } from './publication.service';
 
 @Component({
   selector: 'app-articles',
@@ -25,33 +25,45 @@ import { RouterModule } from '@angular/router';
     FormModule,
     ModalModule
   ],
-  providers: [IconSetService],
+  providers: [IconSetService, PublicationService],
   templateUrl: './publication.component.html',
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   styleUrls: ['./publication.component.scss']
 })
 export class PublicationComponent implements OnInit {
-  articles: any[] = [];
-  filteredArticles: any[] = [];
+  articles: Article[] = [];
+  filteredArticles: Article[] = [];
   loading: boolean = true;
   error: string | null = null;
+  
+  // Icons for direct access in template
+  cilTrash = cilTrash;
+  cilPencil = cilPencil;
+  cilCheck = cilCheck;
+  cilX = cilX;
+  cilPlus = cilPlus;
+  cilNotes = cilNotes;
+  cilCloudDownload = cilCloudDownload;
+  cilPeople = cilPeople;
   
   // Modal management
   showArticleModal: boolean = false;
   showDeleteModal: boolean = false;
   showContributionModal: boolean = false;
-  currentArticle: any = {};
+  currentArticle: Article | null = null;
   
   // New article form
-  newArticle: any = {
-    title: '',
-    content: '',
+  newArticle: Partial<Article> = {
+    titre: '',
+    doi: '',
+    keyword: '',
+    description: '',
     status: 'PENDING',
     domainId: null
   };
   
   // Contribution form
-  newContribution: any = {
+  newContribution: Contribution = {
     contributorId: null,
     type: 'AUTHOR' // Default type
   };
@@ -61,7 +73,7 @@ export class PublicationComponent implements OnInit {
   searchTerm: string = '';
   
   // Domains list for dropdown
-  domains: any[] = [];
+  domains: Domain[] = [];
   
   // Users list for contributor assignment
   users: any[] = [];
@@ -73,7 +85,7 @@ export class PublicationComponent implements OnInit {
   selectedFile: File | null = null;
   
   constructor(
-    private http: HttpClient,
+    private publicationService: PublicationService,
     private iconSetService: IconSetService
   ) { 
     // Register icons
@@ -87,10 +99,10 @@ export class PublicationComponent implements OnInit {
     this.loadDomains();
     this.loadUsers();
   }
-  
+
   loadArticles(): void {
     this.loading = true;
-    this.http.get<any[]>('http://localhost:8080/api/articles')
+    this.publicationService.getAllArticles()
       .subscribe({
         next: (data) => {
           this.articles = data;
@@ -104,9 +116,9 @@ export class PublicationComponent implements OnInit {
         }
       });
   }
-  
+
   loadDomains(): void {
-    this.http.get<any[]>('http://localhost:8080/api/domains')
+    this.publicationService.getAllDomains()
       .subscribe({
         next: (data) => {
           this.domains = data;
@@ -116,9 +128,9 @@ export class PublicationComponent implements OnInit {
         }
       });
   }
-  
+
   loadUsers(): void {
-    this.http.get<any[]>('http://localhost:8080/api/users')
+    this.publicationService.getAllUsers()
       .subscribe({
         next: (data) => {
           this.users = data;
@@ -128,61 +140,109 @@ export class PublicationComponent implements OnInit {
         }
       });
   }
-  
+
   // CRUD Operations
-  createArticle(): void {
-    const userId = localStorage.getItem('userId'); // Assuming user ID is stored in localStorage
-    
-    this.http.post<any>(`http://localhost:8080/api/articles?userId=${userId}`, this.newArticle)
-      .subscribe({
-        next: (data) => {
-          this.articles.push(data);
+ // In your publication.component.ts, update these methods:
+
+// CRUD Operations
+createArticle(): void {
+  console.log('Creating article:', this.newArticle);
+  
+  // Create a clean article object
+  const articleToCreate = {
+    titre: this.newArticle.titre,
+    doi: this.newArticle.doi,
+    keyword: this.newArticle.keyword,
+    description: this.newArticle.description,
+    status: 'PENDING',
+    domainId: this.newArticle.domainId
+  };
+  
+  this.publicationService.createArticle(articleToCreate)
+    .subscribe({
+      next: (data) => {
+        console.log('Article created successfully:', data);
+        this.articles.push(data);
+        this.applyFilters();
+        this.showArticleModal = false;
+        this.resetArticleForm();
+        
+        // Upload file if selected
+        if (this.selectedFile) {
+          this.uploadFile(data.id);
+        }
+      },
+      error: (err) => {
+        console.error('Failed to create article', err);
+        // Display error to user
+        this.error = `Failed to create article: ${err.message || 'Unknown error'}`;
+        // Keep modal open so user can retry
+      }
+    });
+}
+
+updateArticle(): void {
+  if (!this.currentArticle) return;
+  
+  // Create a clean article object
+  const articleToUpdate = {
+    id: this.currentArticle.id,
+    titre: this.currentArticle.titre,
+    doi: this.currentArticle.doi,
+    keyword: this.currentArticle.keyword,
+    description: this.currentArticle.description,
+    status: this.currentArticle.status,
+    domainId: this.selectedDomainId
+  };
+  
+  this.publicationService.updateArticle(this.currentArticle.id, articleToUpdate)
+    .subscribe({
+      next: (data) => {
+        const index = this.articles.findIndex(a => a.id === data.id);
+        if (index !== -1) {
+          this.articles[index] = data;
           this.applyFilters();
-          this.showArticleModal = false;
-          this.resetArticleForm();
-          
-          // Upload file if selected
-          if (this.selectedFile) {
-            this.uploadFile(data.id);
-          }
-        },
-        error: (err) => {
-          console.error('Failed to create article', err);
         }
-      });
-  }
-  
-  updateArticle(): void {
-    const userId = localStorage.getItem('userId');
-    
-    this.http.put<any>(
-      `http://localhost:8080/api/articles/${this.currentArticle.id}?userId=${userId}`,
-      this.currentArticle
-    )
-      .subscribe({
-        next: (data) => {
-          const index = this.articles.findIndex(a => a.id === data.id);
-          if (index !== -1) {
-            this.articles[index] = data;
-            this.applyFilters();
-          }
-          this.showArticleModal = false;
-          
-          // Upload file if selected
-          if (this.selectedFile) {
-            this.uploadFile(data.id);
-          }
-        },
-        error: (err) => {
-          console.error('Failed to update article', err);
+        this.showArticleModal = false;
+        
+        // Upload file if selected
+        if (this.selectedFile) {
+          this.uploadFile(data.id);
         }
-      });
-  }
+      },
+      error: (err) => {
+        console.error('Failed to update article', err);
+        this.error = `Failed to update article: ${err.message || 'Unknown error'}`;
+      }
+    });
+}
+
+// Contribution management
+addContribution(): void {
+  if (!this.currentArticle) return;
   
+  // Create a clean contribution object
+  const cleanContribution = {
+    contributorId: this.newContribution.contributorId,
+    type: this.newContribution.type
+  };
+  
+  this.publicationService.addContribution(this.currentArticle.id, cleanContribution)
+    .subscribe({
+      next: (data) => {
+        // Refresh the article list to get the updated data
+        this.loadArticles();
+        this.showContributionModal = false;
+        this.resetContributionForm();
+      },
+      error: (err) => {
+        console.error('Failed to add contribution', err);
+        this.error = `Failed to add contribution: ${err.message || 'Unknown error'}`;
+      }
+    });
+}
   deleteArticle(id: number): void {
-    const userId = localStorage.getItem('userId');
-    
-    this.http.delete<void>(`http://localhost:8080/api/articles/${id}?userId=${userId}`)
+    this.publicationService.deleteArticle(id)
       .subscribe({
         next: () => {
           this.articles = this.articles.filter(a => a.id !== id);
@@ -196,12 +256,7 @@ export class PublicationComponent implements OnInit {
   }
   
   validateArticle(id: number, status: string): void {
-    const adminId = localStorage.getItem('userId');
-    
-    this.http.put<any>(
-      `http://localhost:8080/api/articles/${id}/validate?adminId=${adminId}`,
-      { status }
-    )
+    this.publicationService.validateArticle(id, status)
       .subscribe({
         next: (data) => {
           const index = this.articles.findIndex(a => a.id === data.id);
@@ -215,35 +270,7 @@ export class PublicationComponent implements OnInit {
         }
       });
   }
-  
-  // Contribution management
-  addContribution(): void {
-    const userId = localStorage.getItem('userId');
-    
-    this.http.post<any>(
-      `http://localhost:8080/api/articles/${this.currentArticle.id}/contributions?userId=${userId}`,
-      this.newContribution
-    )
-      .subscribe({
-        next: (data) => {
-          // If the API returns the updated article with contributions
-          if (this.currentArticle.contributions) {
-            this.currentArticle.contributions.push(data);
-          } else {
-            this.currentArticle.contributions = [data];
-          }
-          
-          this.showContributionModal = false;
-          this.resetContributionForm();
-          
-          // Refresh the article list to get the updated data
-          this.loadArticles();
-        },
-        error: (err) => {
-          console.error('Failed to add contribution', err);
-        }
-      });
-  }
+
   
   // File handling
   onFileSelected(event: any): void {
@@ -252,16 +279,16 @@ export class PublicationComponent implements OnInit {
   
   uploadFile(articleId: number): void {
     if (!this.selectedFile) {
+      console.log('No file selected, skipping upload');
       return;
     }
     
-    const formData = new FormData();
-    formData.append('file', this.selectedFile);
+    console.log(`Uploading file for article ID ${articleId}:`, this.selectedFile.name);
     
-    this.http.post<any>(`http://localhost:8080/api/articles/${articleId}/upload`, formData)
+    this.publicationService.uploadFile(articleId, this.selectedFile)
       .subscribe({
         next: (data) => {
-          console.log('File uploaded successfully');
+          console.log('File uploaded successfully:', data);
           // Update the article in the list with the new file info
           const index = this.articles.findIndex(a => a.id === data.id);
           if (index !== -1) {
@@ -271,27 +298,29 @@ export class PublicationComponent implements OnInit {
         },
         error: (err) => {
           console.error('Failed to upload file', err);
+          this.error = `Failed to upload file: ${err.message || 'Unknown error'}`;
         }
       });
   }
   
   downloadFile(articleId: number): void {
-    this.http.get(`http://localhost:8080/api/articles/${articleId}/download`, { 
-      responseType: 'blob' 
-    })
+    this.publicationService.downloadFile(articleId)
       .subscribe({
         next: (data: Blob) => {
           const article = this.articles.find(a => a.id === articleId);
-          if (!article || !article.fileName) {
-            console.error('No file name found');
+          if (!article || !article.filePath) {
+            console.error('No file path found');
             return;
           }
+          
+          // Extract filename from filepath
+          const fileName = article.filePath.split('/').pop() || 'download';
           
           // Create a download link and trigger the download
           const url = window.URL.createObjectURL(data);
           const a = document.createElement('a');
           a.href = url;
-          a.download = article.fileName;
+          a.download = fileName;
           document.body.appendChild(a);
           a.click();
           window.URL.revokeObjectURL(url);
@@ -305,12 +334,7 @@ export class PublicationComponent implements OnInit {
   
   // Domain assignment
   assignDomain(articleId: number, domainId: number): void {
-    const userId = localStorage.getItem('userId');
-    
-    this.http.post<any>(
-      `http://localhost:8080/api/articles/${articleId}/assign-domain/${domainId}?userId=${userId}`,
-      {}
-    )
+    this.publicationService.assignDomain(articleId, domainId)
       .subscribe({
         next: (data) => {
           const index = this.articles.findIndex(a => a.id === data.id);
@@ -332,17 +356,17 @@ export class PublicationComponent implements OnInit {
     this.showArticleModal = true;
   }
   
-  openEditModal(article: any): void {
+  openEditModal(article: Article): void {
     this.currentArticle = { ...article };
     this.showArticleModal = true;
   }
   
-  openDeleteModal(article: any): void {
+  openDeleteModal(article: Article): void {
     this.currentArticle = article;
     this.showDeleteModal = true;
   }
   
-  openContributionModal(article: any): void {
+  openContributionModal(article: Article): void {
     this.currentArticle = article;
     this.resetContributionForm();
     this.showContributionModal = true;
@@ -350,8 +374,10 @@ export class PublicationComponent implements OnInit {
   
   resetArticleForm(): void {
     this.newArticle = {
-      title: '',
-      content: '',
+      titre: '',
+      doi: '',
+      keyword: '',
+      description: '',
       status: 'PENDING',
       domainId: null
     };
@@ -391,6 +417,83 @@ export class PublicationComponent implements OnInit {
     }
   }
   
+  // Getters and setters for form binding
+  get articleTitle(): string {
+    return this.currentArticle ? this.currentArticle.titre : this.newArticle.titre || '';
+  }
+
+  set articleTitle(value: string) {
+    if (this.currentArticle) {
+      this.currentArticle.titre = value;
+    } else {
+      this.newArticle.titre = value;
+    }
+  }
+
+  get articleDoi(): string {
+    return this.currentArticle ? this.currentArticle.doi : this.newArticle.doi || '';
+  }
+
+  set articleDoi(value: string) {
+    if (this.currentArticle) {
+      this.currentArticle.doi = value;
+    } else {
+      this.newArticle.doi = value;
+    }
+  }
+
+  get articleKeyword(): string {
+    return this.currentArticle ? this.currentArticle.keyword : this.newArticle.keyword || '';
+  }
+
+  set articleKeyword(value: string) {
+    if (this.currentArticle) {
+      this.currentArticle.keyword = value;
+    } else {
+      this.newArticle.keyword = value;
+    }
+  }
+
+  get articleDescription(): string {
+    return this.currentArticle ? this.currentArticle.description : this.newArticle.description || '';
+  }
+
+  set articleDescription(value: string) {
+    if (this.currentArticle) {
+      this.currentArticle.description = value;
+    } else {
+      this.newArticle.description = value;
+    }
+  }
+  
+  get selectedDomainId(): number | null {
+    if (this.currentArticle) {
+      // First check if domain object exists and has an id
+      if (this.currentArticle.domain && this.currentArticle.domain.id) {
+        return this.currentArticle.domain.id;
+      }
+      // Fall back to domainId if set
+      return this.currentArticle.domainId || null;
+    }
+    return this.newArticle.domainId || null;
+  }
+  
+ // Make sure this is called when selecting a domain
+set selectedDomainId(value: number | null) {
+  console.log('Setting domain ID to:', value);
+  if (this.currentArticle) {
+    this.currentArticle.domainId = value;
+    // Also update the domain object if it exists
+    if (!this.currentArticle.domain) {
+      this.currentArticle.domain = {};
+    }
+    this.currentArticle.domain.id = value;
+  } else {
+    this.newArticle.domainId = value;
+  }
+}
+
+  // Helper methods for displaying names
   getContributorName(id: number): string {
     const user = this.users.find(u => u.id === id);
     return user ? `${user.firstName} ${user.lastName}` : 'Unknown User';

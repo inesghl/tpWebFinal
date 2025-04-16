@@ -1,5 +1,6 @@
 package com.example.backend.Services;
 
+import com.example.backend.Dto.ArticleDTO;
 import com.example.backend.Entities.Article;
 import com.example.backend.Entities.Comment;
 import com.example.backend.Entities.Contribution;
@@ -30,7 +31,6 @@ import org.springframework.core.io.Resource;
 import java.nio.file.Path;
 import java.io.File;
 import java.io.IOException;
-
 @Service
 public class ArticleService {
 
@@ -51,35 +51,46 @@ public class ArticleService {
 
     /** ---------- Article CRUD ---------- */
 
-    public List<Article> getAllArticles() {
-        return articleRepository.findAll();
+    public List<ArticleDTO> getAllArticles() {
+        return articleRepository.findAll().stream()
+                .map(ArticleDTO::fromEntity)
+                .collect(Collectors.toList());
     }
-    
-    public List<Article> getArticlesByStatus(String status) {
-        return articleRepository.findByStatus(status);
-    }
-
-    public Article getArticleById(Long id) {
+    public Article getArticleEntityById(Long id) {
         return articleRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Article not found with ID: " + id));
     }
+    
+    public List<ArticleDTO> getArticlesByStatus(String status) {
+        return articleRepository.findByStatus(status).stream()
+                .map(ArticleDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    public ArticleDTO getArticleById(Long id) {
+        Article article = articleRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Article not found with ID: " + id));
+        return ArticleDTO.fromEntity(article);
+    }
 
     @Transactional
-    public Article createArticle(Article article, Long userId) {
+    public ArticleDTO createArticle(ArticleDTO articleDTO, Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
 
-        if (article.getDomain() != null && article.getDomain().getId() != null) {
-            Domain domain = domainRepository.findById(article.getDomain().getId())
+        Domain domain = null;
+        if (articleDTO.getDomainId() != null) {
+            domain = domainRepository.findById(articleDTO.getDomainId())
                     .orElseThrow(() -> new RuntimeException("Domain not found"));
-            article.setDomain(domain);
         }
         
-        // Set default status
-        article.setStatus("PENDING");
+        // Convert DTO to entity
+        Article article = articleDTO.toEntity(user, domain);
         
-        // Set user who created the article
-        article.setUser(user);
+        // Set default status if not provided
+        if (article.getStatus() == null) {
+            article.setStatus("PENDING");
+        }
         
         Article saved = articleRepository.save(article);
 
@@ -92,11 +103,11 @@ public class ArticleService {
         contribution.setLieu("Non spécifié");
         contributionRepository.save(contribution);
 
-        return saved;
+        return ArticleDTO.fromEntity(saved);
     }
 
     @Transactional
-    public Article updateArticle(Long id, Article article, Long userId) {
+    public ArticleDTO updateArticle(Long id, ArticleDTO articleDTO, Long userId) {
         User currentUser = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         
@@ -111,35 +122,18 @@ public class ArticleService {
             throw new RuntimeException("Not authorized to update this publication");
         }
         
-        // Update fields
-        existingArticle.setTitre(article.getTitre());
-        existingArticle.setKeyword(article.getKeyword());
-        existingArticle.setDescription(article.getDescription());
+        // Update fields from DTO
+        articleDTO.updateEntity(existingArticle);
         
-        // Admin can update all fields
-        if (currentUser.getRole() == Role.ADMIN) {
-            if (article.getDoi() != null) {
-                existingArticle.setDoi(article.getDoi());
-            }
-            
-            if (article.getStatus() != null) {
-                existingArticle.setStatus(article.getStatus());
-            }
-            
-            if (article.getUser() != null && article.getUser().getId() != null) {
-                User newUser = userRepository.findById(article.getUser().getId())
-                        .orElseThrow(() -> new RuntimeException("User not found"));
-                existingArticle.setUser(newUser);
-            }
-        }
-        
-        if (article.getDomain() != null && article.getDomain().getId() != null) {
-            Domain domain = domainRepository.findById(article.getDomain().getId())
+        // Handle domain update
+        if (articleDTO.getDomainId() != null) {
+            Domain domain = domainRepository.findById(articleDTO.getDomainId())
                     .orElseThrow(() -> new RuntimeException("Domain not found"));
             existingArticle.setDomain(domain);
         }
         
-        return articleRepository.save(existingArticle);
+        Article updated = articleRepository.save(existingArticle);
+        return ArticleDTO.fromEntity(updated);
     }
 
     @Transactional
@@ -160,6 +154,29 @@ public class ArticleService {
         articleRepository.delete(article);
     }
     
+    // Other methods remain the same...
+    
+    // Update the upload and download methods to return DTOs
+    public ArticleDTO uploadFile(Long articleId, MultipartFile file) {
+        Article article = articleRepository.findById(articleId)
+                .orElseThrow(() -> new RuntimeException("Article not found with ID: " + articleId));
+
+        try {
+            String uploadDir = "uploads/articles/";
+            String fileName = System.currentTimeMillis() + "_" + file.getOriginalFilename();
+            File dest = new File(uploadDir + fileName);
+
+            dest.getParentFile().mkdirs(); // Create directories if needed
+            file.transferTo(dest);
+
+            article.setFilePath(fileName);
+            Article saved = articleRepository.save(article);
+            return ArticleDTO.fromEntity(saved);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to upload file", e);
+        }
+    }
+
     /** ---------- Article Validation ---------- */
     
     @Transactional
@@ -196,7 +213,9 @@ public class ArticleService {
             throw new RuntimeException("Only administrators or moderators can assign domains");
         }
         
-        Article article = getArticleById(articleId);
+        Article article = articleRepository.findById(articleId)
+        .orElseThrow(() -> new RuntimeException("Article not found"));
+    
         Domain domain = domainRepository.findById(domainId)
                 .orElseThrow(() -> new RuntimeException("Domain not found"));
         article.setDomain(domain);
@@ -207,7 +226,9 @@ public class ArticleService {
 
     @Transactional
     public Article assignAuthorToArticle(Long articleId, Long userId) {
-        Article article = getArticleById(articleId);
+        Article article = articleRepository.findById(articleId)
+    .orElseThrow(() -> new RuntimeException("Article not found"));
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -236,7 +257,9 @@ public class ArticleService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
                 
         // Only admin or article owner can add contributors
-        Article article = getArticleById(articleId);
+        Article article = articleRepository.findById(articleId)
+        .orElseThrow(() -> new RuntimeException("Article not found"));
+    
         boolean isOwner = article.getUser().getId().equals(userId);
         
         if (!isOwner && requestingUser.getRole() != Role.ADMIN) {
@@ -283,7 +306,9 @@ public class ArticleService {
     public Comment addComment(Long articleId, Comment comment, Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        Article article = getArticleById(articleId);
+                Article article = articleRepository.findById(articleId)
+                .orElseThrow(() -> new RuntimeException("Article not found"));
+            
 
         comment.setUser(user);
         comment.setArticle(article);
@@ -318,28 +343,30 @@ public class ArticleService {
         return commentRepository.save(comment);
     }
 
-public Article uploadFile(Long articleId, MultipartFile file) {
-    Article article = getArticleById(articleId);
+// public Article uploadFile(Long articleId, MultipartFile file) {
+//     Article article = getArticleById(articleId);
 
-    try {
-        String uploadDir = "uploads/articles/";
-        String fileName = System.currentTimeMillis() + "_" + file.getOriginalFilename();
-        File dest = new File(uploadDir + fileName);
+//     try {
+//         String uploadDir = "uploads/articles/";
+//         String fileName = System.currentTimeMillis() + "_" + file.getOriginalFilename();
+//         File dest = new File(uploadDir + fileName);
 
-        dest.getParentFile().mkdirs(); // Crée les dossiers si nécessaire
-        file.transferTo(dest);
+//         dest.getParentFile().mkdirs(); // Crée les dossiers si nécessaire
+//         file.transferTo(dest);
 
-        article.setFilePath(fileName);
-        return articleRepository.save(article);
-    } catch (IOException e) {
-        throw new RuntimeException("Failed to upload file", e);
-    }
-}
+//         article.setFilePath(fileName);
+//         return articleRepository.save(article);
+//     } catch (IOException e) {
+//         throw new RuntimeException("Failed to upload file", e);
+//     }
+// }
 
 
 
 public Resource downloadFile(Long articleId) {
-    Article article = getArticleById(articleId);
+    Article article = articleRepository.findById(articleId)
+    .orElseThrow(() -> new RuntimeException("Article not found"));
+
     String uploadDir = "uploads/articles/";
     try {
         Path filePath = Paths.get(uploadDir).resolve(article.getFilePath()).normalize();
