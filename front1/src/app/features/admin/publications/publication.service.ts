@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { catchError, Observable, throwError } from 'rxjs';
 import { AuthService } from '../../../auth/services/auth.service';
 
 export interface User {
@@ -8,7 +8,7 @@ export interface User {
   firstName: string;
   lastName: string;
   email?: string;
-  employmentDate?: Date;
+  employmentDate?: Date; 
   grade?: string;
   role?: string;
   institution?: string;
@@ -24,22 +24,31 @@ export interface Article {
   description: string;
   status: string;
   domainId?: number | null;
-  domain?: any;
+  domain?: Domain;
   filePath?: string;
-  contributions?: any[];
+  contributions?: ContributionDTO[];
   user?: User;
 }
 
 export interface Domain {
-  id: number;
-  name: string;
+  id: number | null;
+  nomDomaine?: string;
 }
 
-export interface Contribution {
-  id?: number;
-  contributorId: number | null;
+export interface CreateContributionDTO {
+  userId?: number | null;
+  contributorId?: number | null;
   type: string;
+}
+
+export interface ContributionDTO {
+  id?: number;
+  articleId?: number;
+  contributorId?: number | null;
+  type?: string;
   user?: User;
+  date?: Date;
+  lieu?: string;
 }
 
 @Injectable()
@@ -51,13 +60,9 @@ export class PublicationService {
   private getAuthHeaders(): HttpHeaders {
     const token = this.authService.getToken();
     
-    if (!token) {
-      console.error('Authentication token is missing!');
-    }
-    
     return new HttpHeaders({
       'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json'  
     });
   }
 
@@ -70,30 +75,31 @@ export class PublicationService {
     return this.http.get<Article>(`${this.apiUrl}/articles/${id}`, { headers: this.getAuthHeaders() });
   }
 
-  createArticle(article: Partial<Article>): Observable<Article> {
-    const userId = this.authService.getUserId();
-    
-    // Create DTO for API communication
-    const articleDto = {
-      titre: article.titre,
-      doi: article.doi,
-      keyword: article.keyword,
-      description: article.description,
-      status: article.status || 'PENDING',
-      domainId: article.domainId
-    };
-    
-    return this.http.post<Article>(
-      `${this.apiUrl}/articles?userId=${userId}`, 
-      articleDto, 
-      { headers: this.getAuthHeaders() }
-    );
-  }
-
+  // In publication.service.ts
+  // publication.service.ts - createArticle method fix
+createArticle(article: Partial<Article>): Observable<Article> {
+  const userId = this.authService.getUserId();
+  
+  // Create a clean object with only the properties needed for creation
+  const cleanArticle = {
+    titre: article.titre,
+    doi: article.doi,
+    keyword: article.keyword,
+    description: article.description,
+    status: article.status || 'PENDING',
+    domainId: article.domainId ? article.domainId : (article.domain?.id || null)
+  };
+  
+  return this.http.post<Article>(
+    `${this.apiUrl}/articles?userId=${userId}`, 
+    cleanArticle, 
+    { headers: this.getAuthHeaders() }
+  );
+}
   updateArticle(id: number, article: Partial<Article>): Observable<Article> {
     const userId = this.authService.getUserId();
     
-    // Create DTO for API communication
+    // Only include the needed properties for API communication
     const articleDto = {
       id: article.id,
       titre: article.titre,
@@ -110,7 +116,6 @@ export class PublicationService {
       { headers: this.getAuthHeaders() }
     );
   }
-
   deleteArticle(id: number): Observable<void> {
     const userId = this.authService.getUserId();
     return this.http.delete<void>(
@@ -128,9 +133,35 @@ export class PublicationService {
     );
   }
 
-  // No changes needed for other methods...
+
+  // Add this to your PublicationService class
+
+// Update a contribution
+updateContribution(articleId: number, contributionId: number, contribution: Partial<ContributionDTO>): Observable<ContributionDTO> {
+  const userId = this.authService.getUserId();
+  
+  // Only include the needed properties for API communication
+  const updateData = {
+    type: contribution.type,
+    lieu: contribution.lieu
+  };
+  
+  return this.http.put<ContributionDTO>(
+    `${this.apiUrl}/articles/${articleId}/contributions/${contributionId}?userId=${userId}`,
+    updateData,
+    { headers: this.getAuthHeaders() }
+  );
+}
+
+// Make sure your newContribution in the PublicationComponent class includes lieu:
+// newContribution: Partial<ContributionDTO> = {
+//   contributorId: null,
+//   type: 'AUTHOR',
+//   lieu: ''
+// };
 
   // Domain methods
+  
   getAllDomains(): Observable<Domain[]> {
     return this.http.get<Domain[]>(`${this.apiUrl}/domains`, { headers: this.getAuthHeaders() });
   }
@@ -145,18 +176,27 @@ export class PublicationService {
   }
 
   // Contribution methods
-  addContribution(articleId: number, contribution: Contribution): Observable<any> {
+  addContribution(articleId: number, contribution: Partial<ContributionDTO>): Observable<ContributionDTO> {
     const userId = this.authService.getUserId();
     
-    // Clean contribution object to avoid circular references
-    const cleanContribution = {
+    // Create a proper CreateContributionDTO for API communication
+    const createContributionDTO: CreateContributionDTO = {
+      userId: userId,
       contributorId: contribution.contributorId,
-      type: contribution.type
+      type: contribution.type || 'AUTHOR'
     };
     
-    return this.http.post<any>(
+    return this.http.post<ContributionDTO>(
       `${this.apiUrl}/articles/${articleId}/contributions?userId=${userId}`,
-      cleanContribution,
+      createContributionDTO,
+      { headers: this.getAuthHeaders() }
+    );
+  }
+
+  removeContribution(articleId: number, contributionId: number): Observable<Article> {
+    const userId = this.authService.getUserId();
+    return this.http.delete<Article>(
+      `${this.apiUrl}/articles/${articleId}/contributions/${contributionId}?userId=${userId}`,
       { headers: this.getAuthHeaders() }
     );
   }
@@ -181,6 +221,18 @@ export class PublicationService {
       `${this.apiUrl}/articles/${articleId}/upload`,
       formData,
       { headers: headers }
+    ).pipe(
+      catchError(error => {
+        console.error('File upload error:', error);
+        // Extract message from error if possible
+        let errorMessage = 'File upload failed';
+        if (error.error && error.error.message) {
+          errorMessage = error.error.message;
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        return throwError(() => new Error(errorMessage));
+      })
     );
   }
 

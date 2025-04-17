@@ -8,7 +8,7 @@ import { IconSetService } from '@coreui/icons-angular';
 import { cilTrash, cilPencil, cilCheck, cilX, cilPlus, cilNotes, cilCloudDownload, cilPeople } from '@coreui/icons';
 import { RouterModule } from '@angular/router';
 
-import { PublicationService, Article, Domain, Contribution } from './publication.service';
+import { PublicationService, Article, Domain, ContributionDTO } from './publication.service';
 
 @Component({
   selector: 'app-articles',
@@ -63,7 +63,7 @@ export class PublicationComponent implements OnInit {
   };
   
   // Contribution form
-  newContribution: Contribution = {
+  newContribution: Partial<ContributionDTO> = {
     contributorId: null,
     type: 'AUTHOR' // Default type
   };
@@ -142,105 +142,190 @@ export class PublicationComponent implements OnInit {
   }
 
   // CRUD Operations
- // In your publication.component.ts, update these methods:
-
-// CRUD Operations
-createArticle(): void {
-  console.log('Creating article:', this.newArticle);
-  
-  // Create a clean article object
-  const articleToCreate = {
-    titre: this.newArticle.titre,
-    doi: this.newArticle.doi,
-    keyword: this.newArticle.keyword,
-    description: this.newArticle.description,
-    status: 'PENDING',
-    domainId: this.newArticle.domainId
-  };
-  
-  this.publicationService.createArticle(articleToCreate)
-    .subscribe({
-      next: (data) => {
-        console.log('Article created successfully:', data);
-        this.articles.push(data);
-        this.applyFilters();
-        this.showArticleModal = false;
-        this.resetArticleForm();
-        
-        // Upload file if selected
-        if (this.selectedFile) {
-          this.uploadFile(data.id);
-        }
-      },
-      error: (err) => {
-        console.error('Failed to create article', err);
-        // Display error to user
-        this.error = `Failed to create article: ${err.message || 'Unknown error'}`;
-        // Keep modal open so user can retry
-      }
-    });
-}
-
-updateArticle(): void {
-  if (!this.currentArticle) return;
-  
-  // Create a clean article object
-  const articleToUpdate = {
-    id: this.currentArticle.id,
-    titre: this.currentArticle.titre,
-    doi: this.currentArticle.doi,
-    keyword: this.currentArticle.keyword,
-    description: this.currentArticle.description,
-    status: this.currentArticle.status,
-    domainId: this.selectedDomainId
-  };
-  
-  this.publicationService.updateArticle(this.currentArticle.id, articleToUpdate)
-    .subscribe({
-      next: (data) => {
-        const index = this.articles.findIndex(a => a.id === data.id);
-        if (index !== -1) {
-          this.articles[index] = data;
+  createArticle(): void {
+    // Create a clean article object with ONLY the properties the API expects
+    const articleToCreate = {
+      titre: this.newArticle.titre,
+      doi: this.newArticle.doi,
+      keyword: this.newArticle.keyword,
+      description: this.newArticle.description,
+      status: 'PENDING',
+      domainId: this.newArticle.domainId
+    };
+    
+    if (!articleToCreate.titre || !articleToCreate.doi || !articleToCreate.keyword || !articleToCreate.description) {
+      this.error = 'Please fill in all required fields';
+      return;
+    }
+    
+    this.publicationService.createArticle(articleToCreate)
+      .subscribe({
+        next: (data) => {
+          this.articles.push(data);
           this.applyFilters();
+          this.showArticleModal = false;
+          this.resetArticleForm();
+          
+          // Upload file if selected
+          if (this.selectedFile) {
+            this.uploadFile(data.id);
+          }
+        },
+        error: (err) => {
+          this.error = `Failed to create article: ${err.message || 'Unknown error'}`;
         }
-        this.showArticleModal = false;
-        
-        // Upload file if selected
-        if (this.selectedFile) {
-          this.uploadFile(data.id);
+      });
+  }
+  updateArticle(): void {
+    if (!this.currentArticle) return;
+    
+    // Create a clean article object with ONLY the properties the API expects
+    const articleToUpdate = {
+      id: this.currentArticle.id,
+      titre: this.currentArticle.titre,
+      doi: this.currentArticle.doi,
+      keyword: this.currentArticle.keyword,
+      description: this.currentArticle.description,
+      status: this.currentArticle.status,
+      // Important: Always send domainId, not the domain object
+      domainId: this.currentArticle.domain?.id || this.currentArticle.domainId
+    };
+    
+    if (!articleToUpdate.titre || !articleToUpdate.doi || !articleToUpdate.keyword || !articleToUpdate.description) {
+      this.error = 'Please fill in all required fields';
+      return;
+    }
+    
+    this.publicationService.updateArticle(this.currentArticle.id, articleToUpdate)
+      .subscribe({
+        next: (data) => {
+          const index = this.articles.findIndex(a => a.id === data.id);
+          if (index !== -1) {
+            this.articles[index] = data;
+            this.applyFilters();
+          }
+          this.showArticleModal = false;
+          
+          // Upload file if selected
+          if (this.selectedFile) {
+            this.uploadFile(data.id);
+          }
+        },
+        error: (err) => {
+          this.error = `Failed to update article: ${err.message || 'Unknown error'}`;
         }
-      },
-      error: (err) => {
-        console.error('Failed to update article', err);
-        this.error = `Failed to update article: ${err.message || 'Unknown error'}`;
-      }
-    });
+      });
+  }
+
+// Add these properties to your PublicationComponent class
+editingContribution: Partial<ContributionDTO> = {};
+contributionToRemove: Partial<ContributionDTO> | null = null;
+showEditContributionModal = false;
+showConfirmRemoveModal = false;
+
+
+isUserArticleCreator(userId: number): boolean {
+  if (!this.currentArticle || !this.currentArticle.user) return false;
+  return this.currentArticle.user.id === userId;
 }
 
-// Contribution management
-addContribution(): void {
-  if (!this.currentArticle) return;
-  
-  // Create a clean contribution object
-  const cleanContribution = {
-    contributorId: this.newContribution.contributorId,
-    type: this.newContribution.type
-  };
-  
-  this.publicationService.addContribution(this.currentArticle.id, cleanContribution)
-    .subscribe({
-      next: (data) => {
-        // Refresh the article list to get the updated data
-        this.loadArticles();
-        this.showContributionModal = false;
-        this.resetContributionForm();
-      },
-      error: (err) => {
-        console.error('Failed to add contribution', err);
-        this.error = `Failed to add contribution: ${err.message || 'Unknown error'}`;
-      }
-    });
+
+
+
+
+  // In publication.component.ts - Fix the addContribution method
+  // addContribution(): void {
+  //   if (!this.currentArticle) return;
+    
+  //   // Validate required fields
+  //   if (!this.newContribution.contributorId || !this.newContribution.type) {
+  //     this.error = 'Please select a contributor and a contribution type';
+  //     return;
+  //   }
+    
+  //   // Check if the contributor already exists for this article
+  //   const isDuplicate = this.currentArticle.contributions?.some(
+  //     c => c.contributorId === this.newContribution.contributorId && c.type === this.newContribution.type
+  //   );
+    
+  //   if (isDuplicate) {
+  //     this.error = 'This contributor already has this role for this article';
+  //     return;
+  //   }
+    
+  //   // Create a proper contribution object using ContributionDTO
+  //   const contributionToAdd: Partial<ContributionDTO> = {
+  //     contributorId: this.newContribution.contributorId,
+  //     type: this.newContribution.type || 'AUTHOR'
+  //   };
+    
+  //   this.publicationService.addContribution(this.currentArticle.id, contributionToAdd)
+  //     .subscribe({
+  //       next: (data) => {
+  //         console.log('Contribution added successfully:', data);
+          
+  //         // After adding contribution, refresh the article to get updated data
+  //         this.refreshArticleAfterContribution();
+  //       },
+  //       error: (err) => {
+  //         console.error('Failed to add contribution', err);
+  //         this.error = `Failed to add contribution: ${err.message || err.statusText || 'Unknown error'}`;
+  //       }
+  //     });
+  // }
+  // Add this method to publication.component.ts
+
+
+
+   
+  // removeContribution(contributionId: number): void {
+  //   if (!this.currentArticle) return;
+    
+  //   console.log(`Removing contribution ${contributionId} from article ${this.currentArticle.id}`);
+    
+  //   this.publicationService.removeContribution(this.currentArticle.id, contributionId)
+  //     .subscribe({
+  //       next: (data) => {
+  //         console.log('Contribution removed successfully');
+          
+  //         // Refresh the article to get updated contribution list
+  //         this.publicationService.getArticleById(this.currentArticle!.id)
+  //           .subscribe({
+  //             next: (updatedArticle) => {
+  //               // Update in articles list
+  //               const index = this.articles.findIndex(a => a.id === updatedArticle.id);
+  //               if (index !== -1) {
+  //                 this.articles[index] = updatedArticle;
+  //                 this.applyFilters();
+  //               }
+                
+  //               // Update current article
+  //               this.currentArticle = updatedArticle;
+  //             },
+  //             error: (err) => {
+  //               console.error('Failed to refresh article after removing contribution', err);
+  //             }
+  //           });
+  //       },
+  //       error: (err) => {
+  //         console.error('Failed to remove contribution', err);
+  //         this.error = `Failed to remove contribution: ${err.message || err.statusText || 'Unknown error'}`;
+  //       }
+  //     });
+  // }
+
+
+// Reset the editing contribution form
+resetEditContributionForm(): void {
+  this.editingContribution = {};
+  this.showEditContributionModal = false;
 }
+
+// Define the UpdateContributionDTO interface in your publication.service.ts
+// export interface UpdateContributionDTO {
+//   type?: string;
+//   lieu?: string;
+// }
   deleteArticle(id: number): void {
     this.publicationService.deleteArticle(id)
       .subscribe({
@@ -270,67 +355,74 @@ addContribution(): void {
         }
       });
   }
-
   
   // File handling
-  onFileSelected(event: any): void {
+
+
+onFileSelected(event: any): void {
+  if (event.target.files.length > 0) {
     this.selectedFile = event.target.files[0];
+    console.log('File selected:', this.selectedFile?.name);
+  }
+}
+
+uploadFile(articleId: number): void {
+  if (!this.selectedFile) {
+    console.log('No file selected, skipping upload');
+    return;
   }
   
-  uploadFile(articleId: number): void {
-    if (!this.selectedFile) {
-      console.log('No file selected, skipping upload');
-      return;
-    }
-    
-    console.log(`Uploading file for article ID ${articleId}:`, this.selectedFile.name);
-    
-    this.publicationService.uploadFile(articleId, this.selectedFile)
-      .subscribe({
-        next: (data) => {
-          console.log('File uploaded successfully:', data);
-          // Update the article in the list with the new file info
-          const index = this.articles.findIndex(a => a.id === data.id);
-          if (index !== -1) {
-            this.articles[index] = data;
-          }
-          this.selectedFile = null;
-        },
-        error: (err) => {
-          console.error('Failed to upload file', err);
-          this.error = `Failed to upload file: ${err.message || 'Unknown error'}`;
-        }
-      });
-  }
+  console.log(`Uploading file for article ID ${articleId}:`, this.selectedFile.name);
   
-  downloadFile(articleId: number): void {
-    this.publicationService.downloadFile(articleId)
-      .subscribe({
-        next: (data: Blob) => {
-          const article = this.articles.find(a => a.id === articleId);
-          if (!article || !article.filePath) {
-            console.error('No file path found');
-            return;
-          }
-          
-          // Extract filename from filepath
-          const fileName = article.filePath.split('/').pop() || 'download';
-          
-          // Create a download link and trigger the download
-          const url = window.URL.createObjectURL(data);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = fileName;
-          document.body.appendChild(a);
-          a.click();
-          window.URL.revokeObjectURL(url);
-          document.body.removeChild(a);
-        },
-        error: (err) => {
-          console.error('Failed to download file', err);
+  this.publicationService.uploadFile(articleId, this.selectedFile)
+    .subscribe({
+      next: (data) => {
+        console.log('File uploaded successfully:', data);
+        // Update the article in the list with the new file info
+        const index = this.articles.findIndex(a => a.id === data.id);
+        if (index !== -1) {
+          this.articles[index] = data;
+          this.applyFilters();
         }
-      });
-  }
+        this.selectedFile = null;
+      },
+      error: (err) => {
+        console.error('Failed to upload file', err);
+        this.error = `Failed to upload file: ${err.message || 'Unknown error'}`;
+      }
+    });
+}
+  
+downloadFile(articleId: number): void {
+  this.publicationService.downloadFile(articleId)
+    .subscribe({
+      next: (data: Blob) => {
+        const article = this.articles.find(a => a.id === articleId);
+        if (!article || !article.filePath) {
+          console.error('No file path found');
+          this.error = 'No file associated with this article';
+          return;
+        }
+        
+        // Extract filename from filepath
+        const fileName = article.filePath.split('/').pop() || 'download';
+        
+        // Create a download link and trigger the download
+        const url = window.URL.createObjectURL(data);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      },
+      error: (err) => {
+        console.error('Failed to download file', err);
+        this.error = `Failed to download file: ${err.message || 'Unknown error'}`;
+      }
+    });
+}
   
   // Domain assignment
   assignDomain(articleId: number, domainId: number): void {
@@ -384,12 +476,7 @@ addContribution(): void {
     this.selectedFile = null;
   }
   
-  resetContributionForm(): void {
-    this.newContribution = {
-      contributorId: null,
-      type: 'AUTHOR'
-    };
-  }
+ 
   
   // Filtering
   applyFilters(): void {
@@ -478,29 +565,210 @@ addContribution(): void {
     return this.newArticle.domainId || null;
   }
   
- // Make sure this is called when selecting a domain
-set selectedDomainId(value: number | null) {
-  console.log('Setting domain ID to:', value);
-  if (this.currentArticle) {
-    this.currentArticle.domainId = value;
-    // Also update the domain object if it exists
-    if (!this.currentArticle.domain) {
-      this.currentArticle.domain = {};
+  set selectedDomainId(value: number | null) {
+    if (this.currentArticle) {
+      this.currentArticle.domainId = value;
+      // Also update the domain object if it exists
+      if (!this.currentArticle.domain) {
+        this.currentArticle.domain = { id: value } as Domain;
+      } else {
+        this.currentArticle.domain.id = value;
+      }
+    } else {
+      this.newArticle.domainId = value;
     }
-    this.currentArticle.domain.id = value;
-  } else {
-    this.newArticle.domainId = value;
   }
+
+getContributorName(id: number | null | undefined): string {
+  if (id === null || id === undefined) {
+    return 'Unknown User';
+  }
+  const user = this.users.find(u => u.id === id);
+  return user ? `${user.firstName} ${user.lastName}` : 'Unknown User';
+}
+  
+    getDomainName(article: Article): string {
+      if (article.domain && article.domain.id) {
+        const domain = this.domains.find(d => d.id === article.domain?.id);
+        return domain?.nomDomaine ?? 'Uncategorized';
+      } else if (article.domainId) {
+        const domain = this.domains.find(d => d.id === article.domainId);
+        return domain?.nomDomaine ?? 'Uncategorized';
+      }
+      return 'Uncategorized';
+    }
+   
+    
+
+
+
+
+
+
+
+
+
+
+
+    // Important methods that need to be present in your PublicationComponent class
+
+    addContribution(): void {
+      if (!this.currentArticle) return;
+      
+      // Validate required fields
+      if (!this.newContribution.contributorId || !this.newContribution.type) {
+        this.error = 'Please select a contributor and a contribution type';
+        return;
+      }
+      
+      // Check if the contributor is the article creator
+      if (this.isUserArticleCreator(this.newContribution.contributorId)) {
+        this.error = 'The article creator cannot be added as a contributor';
+        return;
+      }
+      
+      // Check if the contributor already exists for this article
+      const existingContribution = this.currentArticle.contributions?.find(
+        c => c.contributorId === this.newContribution.contributorId
+      );
+      
+      if (existingContribution) {
+        // If contributor exists, show error
+        this.error = 'This contributor is already associated with this article. Please edit their existing contribution.';
+        return;
+      }
+      
+      // Create contribution object
+      const contributionToAdd: Partial<ContributionDTO> = {
+        contributorId: this.newContribution.contributorId,
+        type: this.newContribution.type || 'AUTHOR',
+        lieu: this.newContribution.lieu
+      };
+      
+      this.publicationService.addContribution(this.currentArticle.id, contributionToAdd)
+        .subscribe({
+          next: (data) => {
+            console.log('Contribution added successfully:', data);
+            this.refreshArticleAfterContribution();
+          },
+          error: (err) => {
+            console.error('Failed to add contribution', err);
+            this.error = `Failed to add contribution: ${err.message || err.statusText || 'Unknown error'}`;
+          }
+        });
+    }
+// Check if user is already a contributor to the current article
+isUserAlreadyContributor(userId: number): boolean {
+  if (!this.currentArticle || !this.currentArticle.contributions) return false;
+  
+  return this.currentArticle.contributions.some(c => c.contributorId === userId);
 }
 
-  // Helper methods for displaying names
-  getContributorName(id: number): string {
-    const user = this.users.find(u => u.id === id);
-    return user ? `${user.firstName} ${user.lastName}` : 'Unknown User';
-  }
+// Helper method to get initials
+getInitials(name: string): string {
+  if (!name || name === 'Unknown User') return 'UN';
   
-  getDomainName(id: number): string {
-    const domain = this.domains.find(d => d.id === id);
-    return domain ? domain.name : 'Uncategorized';
+  const parts = name.split(' ');
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+}
+
+// Open edit modal for contributor
+openEditContributionModal(contribution: ContributionDTO): void {
+  this.editingContribution = {...contribution};
+  this.showEditContributionModal = true;
+}
+
+// Update contribution
+updateContribution(): void {
+  if (!this.currentArticle || !this.editingContribution.id) return;
+  
+  this.publicationService.updateContribution(
+    this.currentArticle.id, 
+    this.editingContribution.id, 
+    this.editingContribution
+  ).subscribe({
+    next: (data) => {
+      console.log('Contribution updated successfully:', data);
+      // After updating contribution, refresh the article
+      this.refreshArticleAfterContribution();
+      this.showEditContributionModal = false;
+    },
+    error: (err) => {
+      console.error('Failed to update contribution', err);
+      this.error = `Failed to update contribution: ${err.message || err.statusText || 'Unknown error'}`;
+    }
+  });
+}
+
+// Show confirmation before deleting
+confirmRemoveContribution(contribution: ContributionDTO): void {
+  this.contributionToRemove = contribution;
+  this.showConfirmRemoveModal = true;
+}
+
+// Remove contribution
+removeContribution(contributionId: number | undefined): void {
+  if (!this.currentArticle || !contributionId) return;
+  
+  this.publicationService.removeContribution(this.currentArticle.id, contributionId)
+    .subscribe({
+      next: (data) => {
+        console.log('Contribution removed successfully');
+        this.refreshArticleAfterContribution();
+        this.showConfirmRemoveModal = false;
+        this.contributionToRemove = null;
+      },
+      error: (err) => {
+        console.error('Failed to remove contribution', err);
+        this.error = `Failed to remove contribution: ${err.message || err.statusText || 'Unknown error'}`;
+      }
+    });
+}
+
+// Add this helper method to reduce duplicate code
+private refreshArticleAfterContribution(): void {
+  if (!this.currentArticle) return;
+  
+  this.publicationService.getArticleById(this.currentArticle.id)
+    .subscribe({
+      next: (updatedArticle) => {
+        // Update in articles list
+        const index = this.articles.findIndex(a => a.id === updatedArticle.id);
+        if (index !== -1) {
+          this.articles[index] = updatedArticle;
+          this.applyFilters();
+        }
+        
+        // Update current article
+        this.currentArticle = updatedArticle;
+        
+        // Reset form and handle modal (don't close the modal yet)
+        this.resetContributionForm();
+      },
+      error: (err) => {
+        console.error('Failed to refresh article after adding contribution', err);
+      }
+    });
+}
+
+// Reset the contribution form with all fields
+resetContributionForm(): void {
+  this.newContribution = {
+    contributorId: null,
+    type: 'AUTHOR',
+    lieu: ''
+  };
+}
+
+// For the status badge colors
+getContributionTypeColor(type: string): string {
+  switch (type) {
+    case 'AUTHOR': return 'primary';
+    case 'REVIEWER': return 'info';
+    case 'EDITOR': return 'success';
+    case 'CONTRIBUTOR': return 'warning';
+    default: return 'secondary';
   }
+}
 }
