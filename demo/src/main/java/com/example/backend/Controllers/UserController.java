@@ -102,7 +102,12 @@ public class UserController {
 
     @Autowired
     private UserService userService;
-
+// Create new user (admin only)
+@PostMapping
+    public ResponseEntity<User> createUser(@RequestBody User user) {
+        User createdUser = userService.createUser(user);
+        return new ResponseEntity<>(createdUser, HttpStatus.CREATED);
+    }
     // Get all users (admin only)
    // @PreAuthorize("hasAuthority('ADMIN')")
     @GetMapping
